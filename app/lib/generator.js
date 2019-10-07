@@ -80,6 +80,7 @@ class Generator {
 
     this.files.forEach(file => {
       if (file.sourceFiles) data.sourceFiles = file.sourceFiles
+      if (file.boot) data.boot = file.boot
       fs.writeFileSync(file.dest, file.template(data), 'utf-8')
     })
 
