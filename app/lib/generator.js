@@ -12,14 +12,35 @@ class Generator {
   constructor (quasarConfig) {
     const { ctx, preFetch, ...cfg } = quasarConfig.getBuildConfig()
 
+    let paths = []
+    this.files = []
+
     this.alreadyGenerated = false
     this.quasarConfig = quasarConfig
 
-    const paths = [
-      'app.js',
-      'client-entry.js',
-      'import-quasar.js'
-    ]
+    if (cfg.multiEntry) {
+      let entries = cfg.multiEntry
+      for (const key in entries) {
+        const entry = entries[key]
+        const dest = entry.dest,
+              sourceFiles = entry.sourceFiles,
+              dir = entry.dir,
+              content = fs.readFileSync(
+                  appPaths.resolve.cli(`templates/entry/app.js`),
+                  'utf-8'
+                )
+
+        this.files.push({
+          filename: dest,
+          dest: path.join(quasarFolder, dest),
+          template: compileTemplate(content),
+          sourceFiles
+        })
+      }
+    }
+
+    if (!cfg.noDefaultEntry) paths.push('app.js')
+    paths.push('client-entry.js', 'import-quasar.js')
 
     if (preFetch) {
       paths.push('client-prefetch.js')
@@ -28,20 +49,19 @@ class Generator {
       paths.push('server-entry.js')
     }
 
-    this.files = paths.map(file => {
-      const
-        content = fs.readFileSync(
-          appPaths.resolve.cli(`templates/entry/${file}`),
-          'utf-8'
-        ),
-        filename = path.basename(file)
+    for (let file of paths) {
+        const filename = path.basename(file)
+        const content = fs.readFileSync(
+              appPaths.resolve.cli(`templates/entry/${file}`),
+              'utf-8'
+            )
 
-      return {
-        filename,
-        dest: path.join(quasarFolder, filename),
-        template: compileTemplate(content)
-      }
-    })
+        this.files.push({
+            filename,
+            dest: path.join(quasarFolder, filename),
+            template: compileTemplate(content)
+        })
+    }
   }
 
   build () {
@@ -59,6 +79,7 @@ class Generator {
     }
 
     this.files.forEach(file => {
+      if (file.sourceFiles) data.sourceFiles = file.sourceFiles
       fs.writeFileSync(file.dest, file.template(data), 'utf-8')
     })
 
